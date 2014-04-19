@@ -77,20 +77,26 @@ do
 done
 popd >/dev/null
 
-
 # If a pidfile is still around (for example after a container restart),
 # delete it so that docker can start.
 rm -rf /var/run/docker.pid
 
-# If we were given a PORT environment variable, start as a simple daemon;
-# otherwise, spawn a shell as well
-if [ "$PORT" ]
+docker -d &
+
+# Wait for Docker to be up and running
+while : ; do
+    [[ -f "/var/run/docker.pid" ]] && break
+    sleep 0.1
+done
+
+if [ "$INSTALL_BUILDSTEP" ]
 then
-	exec docker -d -H 0.0.0.0:$PORT
+    docker pull progrium/buildstep
 else
-
-	docker -d &
-	exec bash
+    export RACK_ENV=production
+    /usr/bin/mongod --nojournal &
+    /usr/bin/redis-server &
+    foreman start -f /home/peas/Procfile &
+    sleep 5
+    exec bash
 fi
-
-foreman start
